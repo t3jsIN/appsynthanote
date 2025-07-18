@@ -39,17 +39,12 @@ class FirebaseService {
   // Test connection
   static Future<bool> _testConnection() async {
     try {
-      await _firestore.collection('_test').doc('connection').set({
-        'timestamp': FieldValue.serverTimestamp(),
-        'status': 'ok',
-      });
+      await _firestore.collection('users').doc('_test').get();
       return true;
     } catch (e) {
       return false;
     }
   }
-
-// In firebase_service.dart, REPLACE the getFirebaseStatus method:
 
   static Future<String> getFirebaseStatus() async {
     try {
@@ -61,27 +56,11 @@ class FirebaseService {
         }
       }
 
-      // Test with a more comprehensive check
-      final testDoc =
-          _firestore.collection('_connection_test').doc('mobile_test');
+      // Simple connection test
+      await _firestore.collection('users').doc('_test').get();
 
-      await testDoc.set({
-        'timestamp': FieldValue.serverTimestamp(),
-        'platform': kIsWeb ? 'web' : 'mobile',
-        'userAgent': 'web_browser',
-        'test': 'connection_check',
-      });
-
-      final snapshot = await testDoc.get();
-
-      if (snapshot.exists) {
-        await testDoc.delete(); // Clean up
-        if (kDebugMode) print('🔥 Firebase connection successful');
-        return "Online ✅";
-      } else {
-        if (kDebugMode) print('🔥 Firebase read failed');
-        return "Read Failed ❌";
-      }
+      if (kDebugMode) print('🔥 Firebase connection successful');
+      return "Online ✅";
     } catch (e) {
       if (kDebugMode) print('🔥 Firebase connection error: $e');
       if (e.toString().contains('cors')) {
@@ -96,7 +75,7 @@ class FirebaseService {
     }
   }
 
-// ALSO ADD this method to force connection on app start:
+  // Force connection on app start
   static Future<void> forceConnection() async {
     if (kDebugMode) print('🔥 Forcing Firebase connection...');
 

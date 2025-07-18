@@ -20,14 +20,24 @@ import 'quick_note_screen.dart';
 import 'music_note_screen.dart';
 import 'mixtip_screen.dart';
 import 'project_studio_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-// Initialize Firebase
+
+  // FORCE Firebase initialization first
   if (kIsWeb) {
-    await FirebaseService.initialize();
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      print('🔥 Firebase initialized successfully');
+    } catch (e) {
+      print('🔥 Firebase init failed: $e');
+    }
   }
+
   // Set iOS status bar style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -162,41 +172,29 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       if (!mounted) return;
 
-      // FORCE Firebase first - NO local fallback on web
       if (kIsWeb) {
-        setState(() {
-          _isLoadingFromCache = true;
-        });
-
-        // ALWAYS try Firebase first on web
-        final success = await FirebaseService.initialize();
-        if (success) {
+        try {
+          await FirebaseService.initialize();
           final firebaseNotes = await FirebaseService.loadNotes();
           if (mounted) {
             setState(() {
               notes = firebaseNotes;
-              _lastCacheTime = DateTime.now();
               _applyFilters();
-              _isLoadingFromCache = false;
             });
           }
-          return;
-        } else {
-          // Firebase failed - show error
+        } catch (e) {
+          print('Firebase load failed: $e');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content:
-                    Text('⚠️ Cloud sync failed. Check internet connection.'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 5),
-              ),
-            );
+            setState(() {
+              notes = [];
+              _applyFilters();
+            });
           }
         }
+        return;
       }
 
-      // Mobile fallback to local storage
+      // Mobile: use local storage
       final prefs = await SharedPreferences.getInstance();
       final notesJson = prefs.getStringList('notes') ?? [];
       if (mounted) {
@@ -212,15 +210,11 @@ class _HomeScreenState extends State<HomeScreen> {
               .where((note) => note != null)
               .cast<Note>()
               .toList();
-          _lastCacheTime = DateTime.now();
           _applyFilters();
-          _isLoadingFromCache = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        _handleError('Loading notes', e);
-      }
+      print('Load notes error: $e');
     }
   }
 

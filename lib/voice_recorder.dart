@@ -72,6 +72,11 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
 
   Future<void> _startRecording() async {
     try {
+      // Unlock audio context for iOS FIRST
+      if (kIsWeb) {
+        await _unlockAudioContext();
+      }
+
       // Request microphone permission
       if (!kIsWeb) {
         if (await Permission.microphone.request() != PermissionStatus.granted) {
@@ -99,10 +104,26 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
     }
   }
 
+  Future<void> _unlockAudioContext() async {
+    try {
+      final audio = html.AudioElement();
+      audio.src =
+          'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+      await audio.play();
+      audio.pause();
+    } catch (e) {
+      print('Audio context unlock failed: $e');
+    }
+  }
+
   Future<void> _startWebRecording() async {
     try {
       _mediaStream = await html.window.navigator.mediaDevices?.getUserMedia({
-        'audio': true,
+        'audio': {
+          'echoCancellation': false,
+          'noiseSuppression': false,
+          'autoGainControl': false,
+        }
       });
 
       if (_mediaStream == null) {
@@ -110,7 +131,18 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
       }
 
       _recordedChunks.clear();
-      _mediaRecorder = html.MediaRecorder(_mediaStream!);
+
+      // Safari-compatible codec selection
+      final options = <String, dynamic>{};
+      if (html.MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options['mimeType'] = 'audio/webm;codecs=opus';
+      } else if (html.MediaRecorder.isTypeSupported('audio/mp4')) {
+        options['mimeType'] = 'audio/mp4';
+      } else {
+        options['mimeType'] = 'audio/webm';
+      }
+
+      _mediaRecorder = html.MediaRecorder(_mediaStream!, options);
 
       _mediaRecorder!.addEventListener('dataavailable', (event) {
         final data = (event as html.BlobEvent).data;
@@ -715,45 +747,49 @@ class _VoiceNotePlayerWidgetState extends State<VoiceNotePlayerWidget> {
   }
 
 // ADD this new method for mobile data URL playback:
+// In voice_recorder.dart, REPLACE the _playDataUrlMobile method:
+
   Future<void> _playDataUrlMobile(String dataUrl) async {
     try {
-      // Create a more robust audio element for mobile
       final audio = html.AudioElement();
-      audio.src = dataUrl;
-      audio.preload = 'auto';
 
-      // Mobile-specific settings
+      // iOS Safari requirements
+      audio.preload = 'auto';
       audio.setAttribute('playsinline', 'true');
       audio.setAttribute('webkit-playsinline', 'true');
+      audio.crossOrigin = 'anonymous';
+      audio.controls = false;
 
-      final completer = Completer<void>();
-
-      audio.onCanPlayThrough.listen((_) {
-        audio.play().then((_) {
-          setState(() {
-            _isPlaying = true;
-          });
-          completer.complete();
-        }).catchError((e) {
-          completer.completeError(e);
-        });
-      });
-
-      audio.onEnded.listen((_) {
-        setState(() {
-          _isPlaying = false;
-        });
-      });
-
-      audio.onError.listen((e) {
-        completer.completeError('Audio playback error');
-      });
-
+      // Set source and load
+      audio.src = dataUrl;
       audio.load();
-      await completer.future.timeout(const Duration(seconds: 10));
+
+      // Wait for load then play
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      try {
+        await audio.play();
+        setState(() {
+          _isPlaying = true;
+        });
+
+        audio.onEnded.listen((_) {
+          setState(() {
+            _isPlaying = false;
+          });
+        });
+      } catch (playError) {
+        print('iOS play error: $playError');
+        throw Exception('iOS audio not supported');
+      }
     } catch (e) {
       print('Mobile audio error: $e');
-      throw e;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Audio not supported on this browser'),
+          backgroundColor: Color(0xFFFF6B6B),
+        ),
+      );
     }
   }
 
