@@ -155,40 +155,47 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+// In main.dart, find the _loadNotes() function and REPLACE it with this:
+
   Future<void> _loadNotes() async {
     try {
-      // Check if widget is still mounted
       if (!mounted) return;
 
-      // Check if we can use cached data
-      if (_canUseCachedData()) {
-        if (mounted) {
-          _applyFilters();
-        }
-        return;
-      }
-
-      if (mounted) {
-        setState(() {
-          _isLoadingFromCache = false;
-        });
-      }
-
-      // ALWAYS try Firebase first on web
+      // FORCE Firebase first - NO local fallback on web
       if (kIsWeb) {
-        await FirebaseService.initialize();
-        final firebaseNotes = await FirebaseService.loadNotes();
-        if (firebaseNotes.isNotEmpty && mounted) {
-          setState(() {
-            notes = firebaseNotes;
-            _lastCacheTime = DateTime.now();
-            _applyFilters();
-          });
+        setState(() {
+          _isLoadingFromCache = true;
+        });
+
+        // ALWAYS try Firebase first on web
+        final success = await FirebaseService.initialize();
+        if (success) {
+          final firebaseNotes = await FirebaseService.loadNotes();
+          if (mounted) {
+            setState(() {
+              notes = firebaseNotes;
+              _lastCacheTime = DateTime.now();
+              _applyFilters();
+              _isLoadingFromCache = false;
+            });
+          }
           return;
+        } else {
+          // Firebase failed - show error
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('⚠️ Cloud sync failed. Check internet connection.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
         }
       }
 
-      // Fallback to local storage
+      // Mobile fallback to local storage
       final prefs = await SharedPreferences.getInstance();
       final notesJson = prefs.getStringList('notes') ?? [];
       if (mounted) {
@@ -206,11 +213,56 @@ class _HomeScreenState extends State<HomeScreen> {
               .toList();
           _lastCacheTime = DateTime.now();
           _applyFilters();
+          _isLoadingFromCache = false;
         });
       }
     } catch (e) {
       if (mounted) {
         _handleError('Loading notes', e);
+      }
+    }
+  }
+
+// Also REPLACE the _saveNotes() function:
+  Future<void> _saveNotes() async {
+    try {
+      // FORCE Firebase save on web - NO local storage
+      if (kIsWeb) {
+        final success = await FirebaseService.saveNotes(notes);
+        if (success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Saved to cloud'),
+                backgroundColor: Color(0xFF4CAF50),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('❌ Cloud save failed'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+        return;
+      }
+
+      // Mobile: Save to local storage
+      final prefs = await SharedPreferences.getInstance();
+      final notesJson = notes.map((note) => jsonEncode(note.toJson())).toList();
+      await prefs.setStringList('notes', notesJson);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to save: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -221,41 +273,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _invalidateCache() {
     _lastCacheTime = null;
-  }
-
-  Future<void> _saveNotes() async {
-    try {
-      // Save to local storage first (immediate backup)
-      final prefs = await SharedPreferences.getInstance();
-      final notesJson = notes.map((note) => jsonEncode(note.toJson())).toList();
-      await prefs.setStringList('notes', notesJson);
-
-      // ALWAYS attempt Firebase save on web
-      if (kIsWeb) {
-        try {
-          final success = await FirebaseService.saveNotes(notes);
-          if (!success) {
-            // Show user that sync failed but data is safe locally
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Saved locally, cloud sync pending'),
-                  backgroundColor: Colors.orange,
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            }
-          }
-        } catch (e) {}
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Failed to save: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
   }
 
   void _applyFilters() {

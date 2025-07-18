@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'dart:typed_data';
+import 'dart:html' as html show window;
 import 'models.dart';
 
 class FirebaseService {
@@ -54,15 +55,64 @@ class FirebaseService {
     }
   }
 
-  // Get status
-  static Future<String> getFirebaseStatus() async {
-    if (!_isInitialized) {
-      final initialized = await initialize();
-      if (!initialized) return "Offline ❌";
-    }
+// In firebase_service.dart, REPLACE the getFirebaseStatus method:
 
-    final isConnected = await _testConnection();
-    return isConnected ? "Online ✅" : "Offline ❌";
+  static Future<String> getFirebaseStatus() async {
+    try {
+      if (!_isInitialized) {
+        final initialized = await initialize();
+        if (!initialized) {
+          if (kDebugMode) print('🔥 Firebase initialization failed');
+          return "Init Failed ❌";
+        }
+      }
+
+      // Test with a more comprehensive check
+      final testDoc =
+          _firestore.collection('_connection_test').doc('mobile_test');
+
+      await testDoc.set({
+        'timestamp': FieldValue.serverTimestamp(),
+        'platform': kIsWeb ? 'web' : 'mobile',
+        'userAgent': 'web_browser',
+        'test': 'connection_check',
+      });
+
+      final snapshot = await testDoc.get();
+
+      if (snapshot.exists) {
+        await testDoc.delete(); // Clean up
+        if (kDebugMode) print('🔥 Firebase connection successful');
+        return "Online ✅";
+      } else {
+        if (kDebugMode) print('🔥 Firebase read failed');
+        return "Read Failed ❌";
+      }
+    } catch (e) {
+      if (kDebugMode) print('🔥 Firebase connection error: $e');
+      if (e.toString().contains('cors')) {
+        return "CORS Error ❌";
+      } else if (e.toString().contains('permission')) {
+        return "Permission ❌";
+      } else if (e.toString().contains('network')) {
+        return "Network ❌";
+      } else {
+        return "Error ❌";
+      }
+    }
+  }
+
+// ALSO ADD this method to force connection on app start:
+  static Future<void> forceConnection() async {
+    if (kDebugMode) print('🔥 Forcing Firebase connection...');
+
+    try {
+      await initialize();
+      await getFirebaseStatus();
+      if (kDebugMode) print('🔥 Force connection complete');
+    } catch (e) {
+      if (kDebugMode) print('🔥 Force connection failed: $e');
+    }
   }
 
   // Save notes

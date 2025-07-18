@@ -647,60 +647,113 @@ class _VoiceNotePlayerWidgetState extends State<VoiceNotePlayerWidget> {
         setState(() {
           _isPlaying = false;
         });
-      } else {
-        if (kIsWeb && widget.voiceNote.filePath.startsWith('data:')) {
-          _playDataUrlInPlayer(widget.voiceNote.filePath);
-        } else if (kIsWeb && widget.voiceNote.filePath.startsWith('blob:')) {
+        return;
+      }
+
+      final filePath = widget.voiceNote.filePath;
+
+      // MOBILE-SPECIFIC AUDIO HANDLING
+      if (kIsWeb) {
+        if (filePath.startsWith('data:')) {
+          // Use HTML5 Audio for data URLs on mobile
+          await _playDataUrlMobile(filePath);
+        } else if (filePath.startsWith('blob:')) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Old recording expired. Please record again.'),
+              content: Text('Recording expired. Please record again.'),
               backgroundColor: Color(0xFFFF6B6B),
             ),
           );
-        } else if (kIsWeb) {
-          await _audioPlayer.setUrl(widget.voiceNote.filePath);
+          return;
+        } else if (filePath.startsWith('https://')) {
+          // Firebase URLs
+          await _audioPlayer.setUrl(filePath);
+          await _audioPlayer.play();
+          setState(() {
+            _isPlaying = true;
+          });
+        }
+      } else {
+        // Mobile native file playback
+        final file = File(filePath);
+        if (await file.exists()) {
+          await _audioPlayer.setFilePath(filePath);
           await _audioPlayer.play();
           setState(() {
             _isPlaying = true;
           });
         } else {
-          final file = File(widget.voiceNote.filePath);
-          if (await file.exists()) {
-            await _audioPlayer.setFilePath(widget.voiceNote.filePath);
-            await _audioPlayer.play();
-            setState(() {
-              _isPlaying = true;
-            });
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Audio file not found'),
-                backgroundColor: Color(0xFFFF6B6B),
-              ),
-            );
-            return;
-          }
-        }
-
-        if (!widget.voiceNote.filePath.startsWith('blob:')) {
-          _audioPlayer.playerStateStream.listen((state) {
-            if (mounted &&
-                !_isDisposed &&
-                state.processingState == ProcessingState.completed) {
-              setState(() {
-                _isPlaying = false;
-              });
-            }
-          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Audio file not found'),
+              backgroundColor: Color(0xFFFF6B6B),
+            ),
+          );
+          return;
         }
       }
+
+      // Listen for completion
+      _audioPlayer.playerStateStream.listen((state) {
+        if (mounted &&
+            !_isDisposed &&
+            state.processingState == ProcessingState.completed) {
+          setState(() {
+            _isPlaying = false;
+          });
+        }
+      });
     } catch (e) {
+      print('Playback error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Playback failed'),
+          content: Text('Playback failed. Try recording again.'),
           backgroundColor: Color(0xFFFF6B6B),
         ),
       );
+    }
+  }
+
+// ADD this new method for mobile data URL playback:
+  Future<void> _playDataUrlMobile(String dataUrl) async {
+    try {
+      // Create a more robust audio element for mobile
+      final audio = html.AudioElement();
+      audio.src = dataUrl;
+      audio.preload = 'auto';
+
+      // Mobile-specific settings
+      audio.setAttribute('playsinline', 'true');
+      audio.setAttribute('webkit-playsinline', 'true');
+
+      final completer = Completer<void>();
+
+      audio.onCanPlayThrough.listen((_) {
+        audio.play().then((_) {
+          setState(() {
+            _isPlaying = true;
+          });
+          completer.complete();
+        }).catchError((e) {
+          completer.completeError(e);
+        });
+      });
+
+      audio.onEnded.listen((_) {
+        setState(() {
+          _isPlaying = false;
+        });
+      });
+
+      audio.onError.listen((e) {
+        completer.completeError('Audio playback error');
+      });
+
+      audio.load();
+      await completer.future.timeout(const Duration(seconds: 10));
+    } catch (e) {
+      print('Mobile audio error: $e');
+      throw e;
     }
   }
 
@@ -726,21 +779,26 @@ class _VoiceNotePlayerWidgetState extends State<VoiceNotePlayerWidget> {
           // Play/Pause Button
           GestureDetector(
             onTap: _playPause,
+            onLongPress: _playPause, // Add long press for mobile
+            behavior: HitTestBehavior.opaque, // Better touch handling
             child: Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                color: Color(0xFF121212),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _isPlaying ? Icons.pause : Icons.play_arrow,
-                color: const Color(0xFFF8F8F8),
-                size: 18,
+              // Add padding for bigger touch target
+              padding: const EdgeInsets.all(8),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF121212),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: const Color(0xFFF8F8F8),
+                  size: 18,
+                ),
               ),
             ),
           ),
-
           const SizedBox(width: 12),
 
           // Title and duration
