@@ -1,52 +1,98 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <base href="/" />
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta name="description" content="A music and notes brainstorming app" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-         
-    <!-- Web App Meta -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="syntanote" />
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-touch-fullscreen" content="yes">
-         
-    <!-- Icons -->
-    <link rel="apple-touch-icon" href="icons/Icon-192.png" />
-    <link rel="icon" type="image/png" href="favicon.png" />
-         
-    <!-- Manifest -->
-    <link rel="manifest" href="manifest.json" />
-         
-    <title>syntanote</title>
-     
-    <!-- 🔥 Firebase SDKs (v9 compat) -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+ <head>
+   <base href="/" />
+   <meta charset="UTF-8" />
+   <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+   <meta name="description" content="A music and notes brainstorming app" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+        
+   <!-- Web App Meta -->
+   <meta name="mobile-web-app-capable" content="yes" />
+   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+   <meta name="apple-mobile-web-app-title" content="syntanote" />
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-touch-fullscreen" content="yes">
+        
+   <!-- Icons -->
+   <link rel="apple-touch-icon" href="icons/Icon-192.png" />
+   <link rel="icon" type="image/png" href="favicon.png" />
+        
+   <!-- Manifest -->
+   <link rel="manifest" href="manifest.json" />
+        
+   <title>syntanote</title>
+    
+   <!-- 🔥 Firebase SDKs (v9 compat) -->
+   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
-    <script>
-      const firebaseConfig = {
-      apiKey: "AIzaSyCEB3Fk_F4u5-sN2jjZ1c0LDrC9shf67ks",
-      authDomain: "synthanote.firebaseapp.com",
-      projectId: "synthanote",
-      storageBucket: "synthanote.appspot.com",
-      messagingSenderId: "804957043676",
-      appId: "1:804957043676:web:80ff9f13e447ba5612ad19"
-    };
-  
-    firebase.initializeApp(firebaseConfig);
-    console.log("🔥 Firebase initialized!");
-  </script>
+   <script>
+     const firebaseConfig = {
+       apiKey: "AIzaSyCEB3Fk_F4u5-sN2jjZ1c0LDrC9shf67ks",
+       authDomain: "synthanote.firebaseapp.com",
+       projectId: "synthanote",
+       storageBucket: "synthanote.appspot.com",
+       messagingSenderId: "804957043676",
+       appId: "1:804957043676:web:80ff9f13e447ba5612ad19"
+     };
      
-    <!-- Flutter loader -->
-    <script src="flutter.js" defer></script>
-  </head>
-  <body>
-    <!-- Flutter app will mount here -->
-    <script src="main.dart.js" type="application/javascript"></script>
-  </body>
+     firebase.initializeApp(firebaseConfig);
+     console.log("🔥 Firebase initialized!");
+   </script>
+
+   <!-- Virtual Keyboard Fix for PWA -->
+   <script>
+     // Force keyboard to appear on iOS PWA
+     document.addEventListener('DOMContentLoaded', function() {
+       // Detect if running as PWA
+       const isPWA = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+       
+       if (isPWA && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+         // Force viewport changes when input is focused
+         const inputs = document.querySelectorAll('input, textarea');
+         
+         function handleFocus(e) {
+           setTimeout(() => {
+             e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             // Force iOS to show keyboard
+             const tempInput = document.createElement('input');
+             tempInput.style.position = 'absolute';
+             tempInput.style.top = '-1000px';
+             tempInput.style.opacity = '0';
+             document.body.appendChild(tempInput);
+             tempInput.focus();
+             tempInput.blur();
+             document.body.removeChild(tempInput);
+             e.target.focus();
+           }, 100);
+         }
+         
+         // Add event listeners to all inputs
+         document.addEventListener('focusin', handleFocus);
+         
+         // Also listen for dynamically added inputs
+         const observer = new MutationObserver(function(mutations) {
+           mutations.forEach(function(mutation) {
+             mutation.addedNodes.forEach(function(node) {
+               if (node.nodeType === 1 && (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA')) {
+                 node.addEventListener('focus', handleFocus);
+               }
+             });
+           });
+         });
+         
+         observer.observe(document.body, { childList: true, subtree: true });
+       }
+     });
+   </script>
+    
+   <!-- Flutter loader -->
+   <script src="flutter.js" defer></script>
+ </head>
+ <body>
+   <!-- Flutter app will mount here -->
+   <script src="main.dart.js" type="application/javascript"></script>
+ </body>
 </html>
