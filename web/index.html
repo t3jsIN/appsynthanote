@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base href="/" />
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="description" content="A music and notes brainstorming app" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+         
+    <!-- Web App Meta -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="syntanote" />
+         
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="icons/Icon-192.png" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+         
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json" />
+         
+    <title>syntanote</title>
+     
+    <!-- 🔥 MODERN Firebase SDKs (v10.7.1) -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getStorage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+      
+      // Make Firebase available globally for Flutter
+      window.firebaseConfig = {
+        apiKey: "AIzaSyCEB3Fk_F4u5-sN2jjZ1c0LDrC9shf67ks",
+        authDomain: "synthanote.firebaseapp.com",
+        projectId: "synthanote",
+        storageBucket: "synthanote.appspot.com",
+        messagingSenderId: "804957043676",
+        appId: "1:804957043676:web:80ff9f13e447ba5612ad19"
+      };
+      
+      // Initialize Firebase
+      const app = initializeApp(window.firebaseConfig);
+      window.firebaseApp = app;
+      window.firestore = getFirestore(app);
+      window.firebaseStorage = getStorage(app);
+      
+      console.log("🔥 Firebase initialized successfully!");
+    </script>
+     
+    <!-- Flutter loader -->
+    <script src="flutter.js" defer></script>
+  </head>
+  <body>
+    <!-- Flutter app will mount here -->
+    <script src="main.dart.js" type="application/javascript"></script>
+  </body>
+</html>
