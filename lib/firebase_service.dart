@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'dart:typed_data';
 import 'dart:html' as html show window;
 import 'models.dart';
+import 'firebase_options.dart';
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -23,14 +24,7 @@ class FirebaseService {
 
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(
-          options: const FirebaseOptions(
-            apiKey: "AIzaSyCEB3Fk_F4u5-sN2jjZ1c0LDrC9shf67ks",
-            authDomain: "synthanote.firebaseapp.com",
-            projectId: "synthanote",
-            storageBucket: "synthanote.appspot.com",
-            messagingSenderId: "804957043676",
-            appId: "1:804957043676:web:80ff9f13e447ba5612ad19",
-          ),
+          options: DefaultFirebaseOptions.currentPlatform,
         );
       }
 

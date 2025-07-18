@@ -20,6 +20,7 @@ import 'quick_note_screen.dart';
 import 'music_note_screen.dart';
 import 'mixtip_screen.dart';
 import 'project_studio_screen.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
